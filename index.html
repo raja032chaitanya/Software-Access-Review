@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SoftAccess – Quarterly Access Review Platform</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0f1117; font-family: 'Sora', 'Segoe UI', sans-serif; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f1117; }
+    ::-webkit-scrollbar-thumb { background: #242938; border-radius: 4px; }
+    button { font-family: inherit; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState } = React;
+
+    const COLORS = {
+      bg: "#0f1117",
+      card: "#181c27",
+      border: "#242938",
+      accent: "#4f8ef7",
+      accent2: "#34d399",
+      accent3: "#f59e42",
+      danger: "#f87171",
+      text: "#e8eaf0",
+      muted: "#7b82a0",
+      highlight: "#232940",
+    };
+
+    const sampleData = {
+      employees: [
+        { id: "E001", name: "Arjun Reddy", email: "arjun@company.com", manager: "Priya Sharma", department: "Engineering", software: ["Jira", "GitHub", "Slack", "Figma"] },
+        { id: "E002", name: "Sneha Kapoor", email: "sneha@company.com", manager: "Priya Sharma", department: "Engineering", software: ["Jira", "GitHub", "Slack"] },
+        { id: "E003", name: "Rahul Mehta", email: "rahul@company.com", manager: "Vikram Nair", department: "HR", software: ["Keka", "Slack", "Zoom"] },
+        { id: "E004", name: "Divya Singh", email: "divya@company.com", manager: "Vikram Nair", department: "HR", software: ["Keka", "Slack"] },
+        { id: "E005", name: "Kiran Babu", email: "kiran@company.com", manager: "Anjali Iyer", department: "Finance", software: ["SAP", "Slack", "Zoom", "Tableau"] },
+        { id: "E006", name: "Meera Nair", email: "meera@company.com", manager: "Anjali Iyer", department: "Finance", software: ["SAP", "Slack"] },
+      ],
+      managers: [
+        { name: "Priya Sharma", email: "priya@company.com", department: "Engineering" },
+        { name: "Vikram Nair", email: "vikram@company.com", department: "HR" },
+        { name: "Anjali Iyer", email: "anjali@company.com", department: "Finance" },
+      ],
+      softwareList: ["Jira", "GitHub", "Slack", "Figma", "Keka", "Zoom", "SAP", "Tableau", "Notion", "Confluence"],
+      reviews: [
+        { id: "R001", employee: "Arjun Reddy", software: "Figma", manager: "Priya Sharma", status: "Pending", quarter: "Q2 2025", date: "2025-04-01" },
+        { id: "R002", employee: "Kiran Babu", software: "Tableau", manager: "Anjali Iyer", status: "Approved", quarter: "Q2 2025", date: "2025-04-01" },
+        { id: "R003", employee: "Sneha Kapoor", software: "GitHub", manager: "Priya Sharma", status: "Revoked", quarter: "Q2 2025", date: "2025-04-01" },
+        { id: "R004", employee: "Divya Singh", software: "Keka", manager: "Vikram Nair", status: "Pending", quarter: "Q2 2025", date: "2025-04-01" },
+      ],
+    };
+
+    const statusColor = { Pending: COLORS.accent3, Approved: COLORS.accent2, Revoked: COLORS.danger };
+    const statusBg    = { Pending: "#2d2210",       Approved: "#0d2d22",       Revoked: "#2d1010" };
+
+    function Badge({ status }) {
+      return (
+        <span style={{
+          background: statusBg[status] || COLORS.highlight,
+          color: statusColor[status] || COLORS.muted,
+          borderRadius: 6, padding: "2px 12px",
+          fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase",
+        }}>{status}</span>
+      );
+    }
+
+    function StatCard({ label, value, sub, color }) {
+      return (
+        <div style={{
+          background: COLORS.card, border: `1.5px solid ${COLORS.border}`,
+          borderRadius: 14, padding: "22px 28px", flex: 1, minWidth: 150,
+        }}>
+          <div style={{ fontSize: 32, fontWeight: 800, color: color || COLORS.accent, fontFamily: "'DM Mono', monospace" }}>{value}</div>
+          <div style={{ fontSize: 14, color: COLORS.text, fontWeight: 600, marginTop: 4 }}>{label}</div>
+          {sub && <div style={{ fontSize: 12, color: COLORS.muted, marginTop: 2 }}>{sub}</div>}
+        </div>
+      );
+    }
+
+    const NAV = ["Overview", "Employees", "Reviews", "Email Preview", "Architecture"];
+
+    function App() {
+      const [tab, setTab] = useState("Overview");
+      const [emailSent, setEmailSent] = useState(false);
+      const [selectedManager, setSelectedManager] = useState(sampleData.managers[0].name);
+      const [reviews, setReviews] = useState(sampleData.reviews);
+
+      const pending  = reviews.filter(r => r.status === "Pending").length;
+      const approved = reviews.filter(r => r.status === "Approved").length;
+      const revoked  = reviews.filter(r => r.status === "Revoked").length;
+
+      const managerEmployees = sampleData.employees.filter(e => e.manager === selectedManager);
+
+      function handleStatusChange(id, newStatus) {
+        setReviews(prev => prev.map(r => r.id === id ? { ...r, status: newStatus } : r));
+      }
+
+      return (
+        <div style={{ minHeight: "100vh", background: COLORS.bg, color: COLORS.text, fontFamily: "'Sora','Segoe UI',sans-serif" }}>
+
+          {/* ── Header ── */}
+          <div style={{
+            background: COLORS.card, borderBottom: `1.5px solid ${COLORS.border}`,
+            padding: "18px 36px", display: "flex", alignItems: "center", justifyContent: "space-between",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <div style={{
+                width: 36, height: 36, borderRadius: 10,
+                background: `linear-gradient(135deg, ${COLORS.accent}, #7c3aed)`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontWeight: 900, fontSize: 18, color: "#fff",
+              }}>S</div>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 18, letterSpacing: -0.5 }}>SoftAccess</div>
+                <div style={{ fontSize: 11, color: COLORS.muted, letterSpacing: 1 }}>QUARTERLY ACCESS REVIEW PLATFORM</div>
+              </div>
+            </div>
+            <div style={{
+              background: COLORS.highlight, border: `1px solid ${COLORS.border}`,
+              borderRadius: 8, padding: "6px 16px", fontSize: 13, color: COLORS.accent3, fontWeight: 600,
+            }}>Q2 2026 · Review Active</div>
+          </div>
+
+          {/* ── Nav ── */}
+          <div style={{
+            display: "flex", gap: 4, padding: "12px 36px 0",
+            borderBottom: `1.5px solid ${COLORS.border}`, background: COLORS.card,
+          }}>
+            {NAV.map(n => (
+              <button key={n} onClick={() => setTab(n)} style={{
+                background: tab === n ? COLORS.accent : "transparent",
+                color: tab === n ? "#fff" : COLORS.muted,
+                border: "none", borderRadius: "8px 8px 0 0",
+                padding: "9px 22px", cursor: "pointer", fontWeight: 700, fontSize: 14, transition: "all 0.2s",
+              }}>{n}</button>
+            ))}
+          </div>
+
+          <div style={{ padding: "32px 36px" }}>
+
+            {/* ── OVERVIEW ── */}
+            {tab === "Overview" && (
+              <div>
+                <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 6 }}>Dashboard Overview</div>
+                <div style={{ color: COLORS.muted, fontSize: 14, marginBottom: 28 }}>
+                  Q2 2026 · Quarterly Software Access Review · {new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}
+                </div>
+                <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 32 }}>
+                  <StatCard label="Total Employees" value={sampleData.employees.length} sub="Across all departments" color={COLORS.accent} />
+                  <StatCard label="Software Tools" value={sampleData.softwareList.length} sub="Under review" color="#a78bfa" />
+                  <StatCard label="Pending Reviews" value={pending} sub="Awaiting manager action" color={COLORS.accent3} />
+                  <StatCard label="Approved" value={approved} sub="Access confirmed" color={COLORS.accent2} />
+                  <StatCard label="Revoked" value={revoked} sub="Access removed" color={COLORS.danger} />
+                </div>
+
+                {/* Automation Pipeline */}
+                <div style={{ background: COLORS.card, border: `1.5px solid ${COLORS.border}`, borderRadius: 14, padding: 28, marginBottom: 28 }}>
+                  <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 20 }}>⚙️ Automation Pipeline</div>
+                  <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+                    {[
+                      { icon: "👥", label: "Keka Portal",    sub: "Employee sync" },
+                      { icon: "→" },
+                      { icon: "📋", label: "Software List",  sub: "From prospect site" },
+                      { icon: "→" },
+                      { icon: "🔗", label: "Access Mapping", sub: "User ↔ Software" },
+                      { icon: "→" },
+                      { icon: "📧", label: "Email Managers", sub: "Quarterly trigger" },
+                      { icon: "→" },
+                      { icon: "✅", label: "Reviews Sheet",  sub: "Auto-updated" },
+                    ].map((step, i) =>
+                      step.icon === "→" ? (
+                        <div key={i} style={{ color: COLORS.muted, fontSize: 22, padding: "0 4px" }}>→</div>
+                      ) : (
+                        <div key={i} style={{
+                          background: COLORS.highlight, border: `1px solid ${COLORS.border}`,
+                          borderRadius: 10, padding: "12px 18px", textAlign: "center", minWidth: 110,
+                        }}>
+                          <div style={{ fontSize: 24 }}>{step.icon}</div>
+                          <div style={{ fontSize: 13, fontWeight: 700, marginTop: 4 }}>{step.label}</div>
+                          <div style={{ fontSize: 11, color: COLORS.muted }}>{step.sub}</div>
+                        </div>
+                      )
+                    )}
+                  </div>
+                </div>
+
+                {/* Software Coverage */}
+                <div style={{ background: COLORS.card, border: `1.5px solid ${COLORS.border}`, borderRadius: 14, padding: 28 }}>
+                  <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>📦 Software Coverage</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                    {sampleData.softwareList.map(sw => {
+                      const count = sampleData.employees.filter(e => e.software.includes(sw)).length;
+                      return (
+                        <div key={sw} style={{
+                          background: COLORS.highlight, border: `1px solid ${COLORS.border}`,
+                          borderRadius: 8, padding: "8px 16px", display: "flex", alignItems: "center", gap: 10,
+                        }}>
+                          <span style={{ fontWeight: 700, fontSize: 14 }}>{sw}</span>
+                          <span style={{
+                            background: COLORS.accent, color: "#fff",
+                            borderRadius: 20, padding: "2px 10px", fontSize: 12, fontWeight: 700,
+                          }}>{count} users</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── EMPLOYEES ── */}
+            {tab === "Employees" && (
+              <div>
+                <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 20 }}>Employee Access Matrix</div>
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+                    <thead>
+                      <tr style={{ background: COLORS.highlight }}>
+                        {["ID", "Employee", "Department", "Manager", "Software Access", "Count"].map(h => (
+                          <th key={h} style={{ padding: "12px 16px", textAlign: "left", color: COLORS.muted, fontWeight: 700, borderBottom: `1.5px solid ${COLORS.border}` }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sampleData.employees.map((emp, i) => (
+                        <tr key={emp.id} style={{ background: i % 2 === 0 ? COLORS.card : COLORS.bg }}>
+                          <td style={{ padding: "12px 16px", color: COLORS.muted, fontFamily: "monospace" }}>{emp.id}</td>
+                          <td style={{ padding: "12px 16px", fontWeight: 600 }}>
+                            <div>{emp.name}</div>
+                            <div style={{ fontSize: 12, color: COLORS.muted }}>{emp.email}</div>
+                          </td>
+                          <td style={{ padding: "12px 16px" }}>{emp.department}</td>
+                          <td style={{ padding: "12px 16px", color: COLORS.accent }}>{emp.manager}</td>
+                          <td style={{ padding: "12px 16px" }}>
+                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                              {emp.software.map(sw => (
+                                <span key={sw} style={{
+                                  background: COLORS.highlight, border: `1px solid ${COLORS.border}`,
+                                  borderRadius: 6, padding: "2px 10px", fontSize: 12, fontWeight: 600,
+                                }}>{sw}</span>
+                              ))}
+                            </div>
+                          </td>
+                          <td style={{ padding: "12px 16px", fontWeight: 800, color: COLORS.accent2 }}>{emp.software.length}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* ── REVIEWS ── */}
+            {tab === "Reviews" && (
+              <div>
+                <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 20 }}>Access Review Records</div>
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+                    <thead>
+                      <tr style={{ background: COLORS.highlight }}>
+                        {["Review ID", "Employee", "Software", "Manager", "Quarter", "Status", "Action"].map(h => (
+                          <th key={h} style={{ padding: "12px 16px", textAlign: "left", color: COLORS.muted, fontWeight: 700, borderBottom: `1.5px solid ${COLORS.border}` }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {reviews.map((r, i) => (
+                        <tr key={r.id} style={{ background: i % 2 === 0 ? COLORS.card : COLORS.bg }}>
+                          <td style={{ padding: "12px 16px", color: COLORS.muted, fontFamily: "monospace" }}>{r.id}</td>
+                          <td style={{ padding: "12px 16px", fontWeight: 600 }}>{r.employee}</td>
+                          <td style={{ padding: "12px 16px" }}>
+                            <span style={{
+                              background: COLORS.highlight, border: `1px solid ${COLORS.border}`,
+                              borderRadius: 6, padding: "2px 10px", fontSize: 12, fontWeight: 600,
+                            }}>{r.software}</span>
+                          </td>
+                          <td style={{ padding: "12px 16px", color: COLORS.accent }}>{r.manager}</td>
+                          <td style={{ padding: "12px 16px", color: COLORS.muted }}>{r.quarter}</td>
+                          <td style={{ padding: "12px 16px" }}><Badge status={r.status} /></td>
+                          <td style={{ padding: "12px 16px" }}>
+                            <div style={{ display: "flex", gap: 6 }}>
+                              <button onClick={() => handleStatusChange(r.id, "Approved")} style={{
+                                background: r.status === "Approved" ? COLORS.accent2 : "transparent",
+                                color: r.status === "Approved" ? "#fff" : COLORS.accent2,
+                                border: `1px solid ${COLORS.accent2}`,
+                                borderRadius: 6, padding: "4px 10px", fontSize: 12, cursor: "pointer", fontWeight: 700,
+                              }}>✓</button>
+                              <button onClick={() => handleStatusChange(r.id, "Revoked")} style={{
+                                background: r.status === "Revoked" ? COLORS.danger : "transparent",
+                                color: r.status === "Revoked" ? "#fff" : COLORS.danger,
+                                border: `1px solid ${COLORS.danger}`,
+                                borderRadius: 6, padding: "4px 10px", fontSize: 12, cursor: "pointer", fontWeight: 700,
+                              }}>✗</button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* ── EMAIL PREVIEW ── */}
+            {tab === "Email Preview" && (
+              <div>
+                <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 6 }}>Quarterly Email Preview</div>
+                <div style={{ color: COLORS.muted, fontSize: 14, marginBottom: 24 }}>Preview the email that will be sent to each manager every quarter.</div>
+
+                <div style={{ display: "flex", gap: 12, marginBottom: 24, flexWrap: "wrap" }}>
+                  {sampleData.managers.map(m => (
+                    <button key={m.name} onClick={() => setSelectedManager(m.name)} style={{
+                      background: selectedManager === m.name ? COLORS.accent : COLORS.highlight,
+                      color: selectedManager === m.name ? "#fff" : COLORS.text,
+                      border: `1px solid ${selectedManager === m.name ? COLORS.accent : COLORS.border}`,
+                      borderRadius: 8, padding: "8px 18px", cursor: "pointer", fontWeight: 600, fontSize: 14,
+                    }}>{m.name}</button>
+                  ))}
+                </div>
+
+                <div style={{ background: "#fff", borderRadius: 14, overflow: "hidden", maxWidth: 680, boxShadow: "0 8px 40px rgba(0,0,0,0.4)" }}>
+                  <div style={{ background: "#1a73e8", padding: "16px 24px", color: "#fff" }}>
+                    <div style={{ fontWeight: 800, fontSize: 18 }}>🔐 Quarterly Software Access Review – Action Required</div>
+                    <div style={{ fontSize: 13, marginTop: 4, opacity: 0.85 }}>Q2 2026 · {new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</div>
+                  </div>
+                  <div style={{ padding: "28px 32px", color: "#222", fontFamily: "sans-serif", fontSize: 15, lineHeight: 1.7 }}>
+                    <p>Dear <strong>{selectedManager}</strong>,</p>
+                    <p style={{ marginTop: 12 }}>As part of our quarterly software access review process, please review the software access for your direct reports listed below.</p>
+                    <p style={{ fontWeight: 700, margin: "16px 0 8px" }}>Your Team's Software Access:</p>
+                    <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 20, fontSize: 14 }}>
+                      <thead>
+                        <tr style={{ background: "#f3f6fb" }}>
+                          {["Employee", "Software", "Still Required?"].map(h => (
+                            <th key={h} style={{ padding: "10px 14px", textAlign: "left", color: "#555", fontWeight: 700, borderBottom: "2px solid #e0e7ef" }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {managerEmployees.flatMap(emp =>
+                          emp.software.map((sw, j) => (
+                            <tr key={emp.id + sw} style={{ background: j % 2 === 0 ? "#fff" : "#f9fbfd" }}>
+                              <td style={{ padding: "9px 14px", borderBottom: "1px solid #eee" }}>{emp.name}</td>
+                              <td style={{ padding: "9px 14px", borderBottom: "1px solid #eee", color: "#1a73e8", fontWeight: 600 }}>{sw}</td>
+                              <td style={{ padding: "9px 14px", borderBottom: "1px solid #eee" }}>
+                                <span style={{ display: "inline-block", background: "#fff3e0", color: "#e65100", borderRadius: 6, padding: "2px 12px", fontSize: 12, fontWeight: 700 }}>Pending</span>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                    <div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
+                      <div style={{ background: "#1a73e8", color: "#fff", borderRadius: 8, padding: "10px 22px", fontWeight: 700, cursor: "pointer", fontSize: 14 }}>✅ Confirm Access</div>
+                      <div style={{ background: "#d32f2f", color: "#fff", borderRadius: 8, padding: "10px 22px", fontWeight: 700, cursor: "pointer", fontSize: 14 }}>🚫 Revoke Access</div>
+                    </div>
+                    <p style={{ color: "#888", fontSize: 13 }}>Please respond within <strong>7 days</strong>. Unreviewed access will be escalated to IT Admin. Contact <a href="#" style={{ color: "#1a73e8" }}>it-access@company.com</a>.</p>
+                    <p style={{ color: "#888", fontSize: 13, marginTop: 8 }}>This is an automated quarterly review email from the SoftAccess platform.</p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => { setEmailSent(true); setTimeout(() => setEmailSent(false), 3000); }}
+                  style={{
+                    marginTop: 24, background: emailSent ? COLORS.accent2 : COLORS.accent,
+                    color: "#fff", border: "none", borderRadius: 10,
+                    padding: "12px 32px", fontWeight: 800, fontSize: 15, cursor: "pointer", transition: "background 0.3s",
+                  }}>
+                  {emailSent ? "✅ Emails Queued!" : "📧 Trigger Quarterly Emails to All Managers"}
+                </button>
+              </div>
+            )}
+
+            {/* ── ARCHITECTURE ── */}
+            {tab === "Architecture" && (
+              <div>
+                <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 6 }}>Implementation Architecture</div>
+                <div style={{ color: COLORS.muted, fontSize: 14, marginBottom: 28 }}>Full technical blueprint for the automation system.</div>
+
+                {[
+                  { title: "1. Keka API Integration — Employee Sync", color: COLORS.accent, icon: "👥",
+                    items: ["Use Keka's REST API (/v1/hris/employees) to pull employee list with manager mapping","Schedule sync daily via cron job or GitHub Actions","Fields: Employee ID, Name, Email, Manager Name, Manager Email, Department, Designation","Store in PostgreSQL or Google Sheets as the source of truth"] },
+                  { title: "2. Software List Management", color: "#a78bfa", icon: "📋",
+                    items: ["Maintain a master software list in your database / Google Sheet","Scrape or manually update from your prospect website if needed","Each software entry: Name, Vendor, License Type, Owner (IT contact)","Import from your existing Excel sheet (Softwares_Access_Reviews.xlsx)"] },
+                  { title: "3. Access Mapping", color: COLORS.accent3, icon: "🔗",
+                    items: ["Match employees to software from AD, Okta, or manual import","Maintain a table: employee_id, software_id, granted_date, last_reviewed, status","Update after each quarterly review based on manager responses","Flag users inactive for 90+ days for auto-review"] },
+                  { title: "4. Quarterly Email Automation", color: COLORS.accent2, icon: "📧",
+                    items: ["Trigger on 1st of every quarter month (Jan, Apr, Jul, Oct) via cron","Group employees by their manager — one email per manager","Use SendGrid / AWS SES / SMTP for email delivery","Embed unique review links per manager (tokenized URL)","Track open/click/response rates"] },
+                  { title: "5. Manager Response Handling", color: COLORS.danger, icon: "✅",
+                    items: ["Manager clicks 'Confirm' or 'Revoke' per user-software row","Response updates the review table in real-time","Unresponded reviews trigger reminder after 5 days","Escalate to IT Admin if no response in 7 days","Export final report as Excel (matching your current sheet format)"] },
+                  { title: "6. Recommended Tech Stack", color: COLORS.muted, icon: "🛠️",
+                    items: ["Backend: Python (FastAPI) or Node.js","Database: PostgreSQL or Google Sheets API","Email: SendGrid, AWS SES, or Microsoft Graph API (Outlook)","Scheduler: GitHub Actions cron / APScheduler / Celery Beat","Frontend Dashboard: React (this dashboard!)","Auth: Google OAuth / Azure AD SSO for manager login"] },
+                ].map(section => (
+                  <div key={section.title} style={{
+                    background: COLORS.card, border: `1.5px solid ${COLORS.border}`,
+                    borderLeft: `4px solid ${section.color}`, borderRadius: 12, padding: "20px 24px", marginBottom: 16,
+                  }}>
+                    <div style={{ fontWeight: 800, fontSize: 16, color: section.color, marginBottom: 12 }}>{section.icon} {section.title}</div>
+                    <ul style={{ margin: 0, padding: "0 0 0 20px" }}>
+                      {section.items.map((item, i) => (
+                        <li key={i} style={{ color: COLORS.text, marginBottom: 6, fontSize: 14, lineHeight: 1.6 }}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+
+                <div style={{ background: COLORS.highlight, border: `1.5px solid ${COLORS.accent}`, borderRadius: 12, padding: "20px 24px", marginTop: 8 }}>
+                  <div style={{ fontWeight: 800, fontSize: 15, color: COLORS.accent, marginBottom: 10 }}>📅 Quarterly Schedule (Auto-trigger)</div>
+                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                    {["Q1 – January 1", "Q2 – April 1", "Q3 – July 1", "Q4 – October 1"].map(q => (
+                      <div key={q} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: "8px 18px", fontSize: 14, fontWeight: 700, color: COLORS.accent }}>{q}</div>
+                    ))}
+                  </div>
+                  <div style={{ marginTop: 12, fontSize: 13, color: COLORS.muted }}>
+                    Cron expression: <code style={{ background: COLORS.bg, padding: "2px 8px", borderRadius: 4, color: COLORS.accent2 }}>0 9 1 1,4,7,10 *</code> — runs at 9:00 AM on 1st of Jan, Apr, Jul, Oct
+                  </div>
+                </div>
+              </div>
+            )}
+
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<App />);
+  </script>
+</body>
+</html>
